@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Từ Điển — Organic Dictionary</title>
-  <meta name="description" content="Ứng dụng tra từ điển đơn giản của Hiếu vừa làm">
+  <meta name="description" content="Ứng dụng tra từ điển đơn giản, đẹp mắt. Import từ file hoặc link, tra cứu ngay trên trình duyệt.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1073,7 +1073,22 @@
       return badChars / sample.length > 0.1;
     }
 
+    // Detect HTML web pages
+    function isHtmlContent(text) {
+      const sample = text.substring(0, 1000).trim().toLowerCase();
+      return sample.startsWith('<!doctype html') ||
+             sample.startsWith('<html') ||
+             sample.includes('<head') ||
+             sample.includes('<body') ||
+             (sample.includes('<div') && sample.includes('</div>')) ||
+             (sample.includes('<table') && sample.includes('</table>'));
+    }
+
     function parseCSV(text) {
+      // Reject HTML content (web pages)
+      if (isHtmlContent(text)) {
+        return [];
+      }
       // Reject binary content
       if (isBinaryContent(text)) {
         return [];
@@ -1293,9 +1308,19 @@
 
       try {
         const text = await fetchWithCors(url);
+
+        // Check if it's a web page instead of a data file
+        if (isHtmlContent(text)) {
+          showToast('Link này là trang web, không phải file từ điển. Hãy dùng link trỏ tới file .txt hoặc .csv', 'error');
+          showLoading(false);
+          btn.disabled = false;
+          btn.textContent = 'Tải về';
+          return;
+        }
+
         const entries = parseCSV(text);
         if (entries.length === 0) {
-          showToast('Không tìm thấy dữ liệu từ điển hợp lệ từ URL. File cần định dạng: word | pos | meaning | example', 'error');
+          showToast('Không tìm thấy dữ liệu từ điển hợp lệ. File cần định dạng: word | pos | meaning | example', 'error');
           showLoading(false);
           btn.disabled = false;
           btn.textContent = 'Tải về';
