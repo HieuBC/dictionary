@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Từ Điển — Organic Dictionary</title>
-  <meta name="description" content="Ứng dụng tra từ điển đơn giản. Import từ file hoặc link, tra cứu ngay trên trình duyệt.">
+  <meta name="description" content="Ứng dụng tra từ điển đơn giản, đẹp mắt. Import từ file hoặc link, tra cứu ngay trên trình duyệt.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1252,6 +1252,34 @@
     }
 
     // ============ URL IMPORT ============
+    const CORS_PROXIES = [
+      (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    ];
+
+    async function fetchWithCors(url) {
+      // Try direct fetch first
+      try {
+        const res = await fetch(url);
+        if (res.ok) return await res.text();
+      } catch (e) { /* CORS blocked, try proxies */ }
+
+      // Try each proxy
+      for (const proxy of CORS_PROXIES) {
+        try {
+          const proxyUrl = proxy(url);
+          const res = await fetch(proxyUrl);
+          if (res.ok) {
+            const text = await res.text();
+            if (text && text.length > 0) return text;
+          }
+        } catch (e) { /* try next proxy */ }
+      }
+
+      throw new Error('Không thể tải URL. Hãy thử tải file về máy rồi import bằng nút File.');
+    }
+
     async function fetchFromUrl() {
       const url = document.getElementById('urlInput').value.trim();
       if (!url) {
@@ -1264,12 +1292,10 @@
       showLoading(true);
 
       try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
+        const text = await fetchWithCors(url);
         const entries = parseCSV(text);
         if (entries.length === 0) {
-          showToast('Không tìm thấy dữ liệu hợp lệ từ URL', 'error');
+          showToast('Không tìm thấy dữ liệu từ điển hợp lệ từ URL. File cần định dạng: word | pos | meaning | example', 'error');
           showLoading(false);
           btn.disabled = false;
           btn.textContent = 'Tải về';
@@ -1277,11 +1303,11 @@
         }
         dictionary = entries;
         saveToStorage();
-        saveSource(new URL(url).hostname);
+        try { saveSource(new URL(url).hostname); } catch(e) { saveSource(url); }
         showToast(`Đã import ${entries.length} từ từ URL`, 'success');
         onDataLoaded();
       } catch (err) {
-        showToast('Lỗi tải dữ liệu: ' + err.message, 'error');
+        showToast(err.message, 'error');
       }
 
       showLoading(false);
