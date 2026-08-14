@@ -1,0 +1,21 @@
+word | pos | meaning | example
+serendipity | noun | sự tình cờ may mắn | It was pure serendipity that we met at the café.
+ephemeral | adj | phù du, thoáng qua | The beauty of cherry blossoms is ephemeral.
+resilience | noun | sự kiên cường, khả năng phục hồi | Her resilience helped her overcome every obstacle.
+ubiquitous | adj | có mặt khắp nơi | Smartphones have become ubiquitous in modern life.
+eloquent | adj | hùng biện, lưu loát | She gave an eloquent speech about climate change.
+pragmatic | adj | thực dụng, thực tế | We need a pragmatic approach to solve this problem.
+quintessential | adj | tinh tuý, tiêu biểu nhất | Paris is the quintessential romantic city.
+nostalgia | noun | nỗi nhớ quê hương, hoài niệm | The old song filled her with nostalgia.
+cacophony | noun | tiếng ồn hỗn tạp | The city streets were a cacophony of horns and voices.
+benevolent | adj | nhân từ, từ bi | The benevolent king was loved by his people.
+meticulous | adj | tỉ mỉ, cẩn thận | She is meticulous in her research work.
+paradigm | noun | mô hình, khuôn mẫu | This discovery represents a paradigm shift in science.
+ambivalent | adj | mâu thuẫn, nửa muốn nửa không | He felt ambivalent about accepting the job offer.
+diligent | adj | siêng năng, chăm chỉ | A diligent student always completes assignments on time.
+empathy | noun | sự đồng cảm | Empathy is essential for building strong relationships.
+fortitude | noun | sự kiên cường, lòng dũng cảm | She faced the crisis with remarkable fortitude.
+gratitude | noun | lòng biết ơn | I expressed my gratitude for their kindness.
+harmony | noun | sự hài hoà | They lived in harmony with nature.
+integrity | noun | sự chính trực, liêm chính | A leader must have integrity above all else.
+jubilant | adj | vui mừng khôn xiết | The crowd was jubilant after the victory.

@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Từ Điển — Organic Dictionary</title>
+  <meta name="description" content="Ứng dụng tra từ điển đơn giản, đẹp mắt. Import từ file hoặc link, tra cứu ngay trên trình duyệt.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    /* ========== RESET & BASE ========== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #FDFCF8;
+      --fg: #2C2C24;
+      --primary: #5D7052;
+      --primary-fg: #F3F4F1;
+      --secondary: #C18C5D;
+      --secondary-fg: #FFFFFF;
+      --accent: #E6DCCD;
+      --accent-fg: #4A4A40;
+      --muted: #F0EBE5;
+      --muted-fg: #78786C;
+      --border: #DED8CF;
+      --destructive: #A85448;
+      --card-bg: #FEFEFA;
+      --shadow-moss: 0 4px 20px -2px rgba(93, 112, 82, 0.15);
+      --shadow-float: 0 10px 40px -10px rgba(193, 140, 93, 0.2);
+      --shadow-deep: 0 20px 40px -10px rgba(93, 112, 82, 0.15);
+      --radius-std: 16px;
+      --radius-lg: 24px;
+      --radius-xl: 2rem;
+      --font-heading: 'Fraunces', serif;
+      --font-body: 'Nunito', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      line-height: 1.6;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Noise / grain texture overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.035;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+    }
+
+    /* ========== BACKGROUND BLOBS ========== */
+    .blob {
+      position: fixed;
+      z-index: 0;
+      pointer-events: none;
+      filter: blur(80px);
+      opacity: 0.25;
+    }
+    .blob-1 {
+      width: 500px; height: 500px;
+      background: var(--primary);
+      top: -120px; right: -100px;
+      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+      animation: blobFloat1 20s ease-in-out infinite;
+    }
+    .blob-2 {
+      width: 400px; height: 400px;
+      background: var(--secondary);
+      bottom: -80px; left: -80px;
+      border-radius: 40% 60% 70% 30% / 40% 70% 30% 60%;
+      animation: blobFloat2 25s ease-in-out infinite;
+    }
+    .blob-3 {
+      width: 300px; height: 300px;
+      background: var(--accent);
+      top: 40%; left: 50%;
+      border-radius: 70% 30% 50% 50% / 30% 60% 40% 70%;
+      animation: blobFloat3 18s ease-in-out infinite;
+      opacity: 0.18;
+    }
+    @keyframes blobFloat1 {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      33% { transform: translate(30px, 40px) rotate(10deg); }
+      66% { transform: translate(-20px, 20px) rotate(-5deg); }
+    }
+    @keyframes blobFloat2 {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      33% { transform: translate(-30px, -20px) rotate(-8deg); }
+      66% { transform: translate(40px, -30px) rotate(12deg); }
+    }
+    @keyframes blobFloat3 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-40px, 30px) scale(1.1); }
+    }
+
+    /* ========== LAYOUT ========== */
+    .app-container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 16px 80px;
+    }
+
+    @media (min-width: 640px) {
+      .app-container { padding: 32px 24px 100px; }
+    }
+
+    /* ========== HEADER ========== */
+    .app-header {
+      text-align: center;
+      padding: 48px 0 32px;
+    }
+    .app-header .logo-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px; height: 64px;
+      background: var(--primary);
+      color: var(--primary-fg);
+      border-radius: 50%;
+      font-size: 28px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-moss);
+      transition: transform 0.5s ease;
+    }
+    .app-header .logo-icon:hover { transform: scale(1.1) rotate(-5deg); }
+    .app-header h1 {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 2.4rem;
+      color: var(--fg);
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+    .app-header .subtitle {
+      color: var(--muted-fg);
+      font-size: 1rem;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    @media (min-width: 640px) {
+      .app-header h1 { font-size: 3rem; }
+      .app-header .subtitle { font-size: 1.1rem; }
+    }
+
+    /* ========== SEARCH SECTION ========== */
+    .search-section {
+      position: sticky;
+      top: 12px;
+      z-index: 100;
+      margin-bottom: 32px;
+    }
+    .search-wrapper {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(222, 216, 207, 0.5);
+      border-radius: 9999px;
+      padding: 6px;
+      box-shadow: var(--shadow-moss);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+    .search-wrapper:focus-within {
+      box-shadow: var(--shadow-float);
+      border-color: rgba(93, 112, 82, 0.3);
+    }
+    .search-icon {
+      flex-shrink: 0;
+      width: 42px; height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--primary-fg);
+      margin-left: 2px;
+    }
+    .search-icon svg { width: 20px; height: 20px; }
+    .search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: var(--font-body);
+      font-size: 1rem;
+      color: var(--fg);
+      padding: 10px 4px;
+      min-width: 0;
+    }
+    .search-input::placeholder { color: var(--muted-fg); opacity: 0.7; }
+    .search-clear {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--muted);
+      color: var(--muted-fg);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      margin-right: 4px;
+      transition: all 0.3s ease;
+      font-size: 18px;
+    }
+    .search-clear.visible { display: flex; }
+    .search-clear:hover { background: var(--destructive); color: white; transform: scale(1.1); }
+    .search-clear:active { transform: scale(0.95); }
+
+    /* Autocomplete dropdown */
+    .autocomplete-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 16px; right: 16px;
+      background: rgba(254, 254, 250, 0.97);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(222, 216, 207, 0.5);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-float);
+      max-height: 360px;
+      overflow-y: auto;
+      display: none;
+      z-index: 101;
+    }
+    .autocomplete-dropdown.open { display: block; }
+    .autocomplete-dropdown::-webkit-scrollbar { width: 6px; }
+    .autocomplete-dropdown::-webkit-scrollbar-track { background: transparent; }
+    .autocomplete-dropdown::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    .autocomplete-item {
+      padding: 14px 20px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      border-bottom: 1px solid rgba(222, 216, 207, 0.25);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+    .autocomplete-item:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+    .autocomplete-item:only-child { border-radius: var(--radius-lg); }
+    .autocomplete-item:hover, .autocomplete-item.active {
+      background: rgba(93, 112, 82, 0.08);
+    }
+    .autocomplete-item .ac-word {
+      font-weight: 700;
+      color: var(--fg);
+      font-size: 1rem;
+    }
+    .autocomplete-item .ac-pos {
+      font-size: 0.78rem;
+      color: var(--secondary);
+      font-weight: 600;
+      font-style: italic;
+    }
+    .autocomplete-item .ac-meaning {
+      font-size: 0.85rem;
+      color: var(--muted-fg);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    mark {
+      background: rgba(193, 140, 93, 0.25);
+      color: inherit;
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+
+    /* ========== STATS BAR ========== */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--muted-fg);
+      font-weight: 500;
+    }
+    .stat-item .stat-num {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: var(--primary);
+      transition: transform 0.3s ease;
+    }
+    .stat-item:hover .stat-num { transform: scale(1.12); }
+
+    /* ========== IMPORT SECTION ========== */
+    .import-section {
+      background: var(--card-bg);
+      border: 1px solid rgba(222, 216, 207, 0.5);
+      border-radius: var(--radius-xl);
+      padding: 32px 24px;
+      box-shadow: var(--shadow-moss);
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .import-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.025;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+    }
+    .import-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .import-header h2 {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      font-size: 1.25rem;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .import-header .toggle-chevron {
+      width: 28px; height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--muted);
+      color: var(--muted-fg);
+      transition: all 0.3s ease;
+    }
+    .import-header .toggle-chevron.collapsed { transform: rotate(-90deg); }
+    .import-body { transition: all 0.3s ease; }
+    .import-body.collapsed { display: none; }
+
+    .import-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .import-tab {
+      padding: 8px 20px;
+      border-radius: 9999px;
+      border: 2px solid var(--border);
+      background: transparent;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: var(--muted-fg);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .import-tab:hover { border-color: var(--secondary); color: var(--secondary); }
+    .import-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--primary-fg);
+    }
+    .import-tab:active { transform: scale(0.95); }
+
+    /* File drop zone */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(93, 112, 82, 0.04);
+    }
+    .drop-zone.dragover {
+      transform: scale(1.01);
+      box-shadow: inset 0 0 0 2px rgba(93, 112, 82, 0.1);
+    }
+    .drop-zone .drop-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .drop-zone .drop-text {
+      color: var(--muted-fg);
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+    .drop-zone .drop-text strong { color: var(--primary); }
+    .drop-zone .drop-hint {
+      color: var(--muted-fg);
+      font-size: 0.78rem;
+      margin-top: 8px;
+      opacity: 0.7;
+    }
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* URL input */
+    .url-import { display: none; }
+    .url-import.active { display: flex; gap: 10px; }
+    .url-input-wrap {
+      flex: 1;
+      position: relative;
+    }
+    .url-input {
+      width: 100%;
+      height: 48px;
+      border: 2px solid var(--border);
+      border-radius: 9999px;
+      padding: 0 20px;
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      color: var(--fg);
+      background: rgba(255,255,255,0.5);
+      outline: none;
+      transition: all 0.3s ease;
+    }
+    .url-input:focus {
+      border-color: rgba(93, 112, 82, 0.4);
+      box-shadow: 0 0 0 3px rgba(93, 112, 82, 0.1);
+    }
+    .url-input::placeholder { color: var(--muted-fg); opacity: 0.6; }
+    .btn-fetch {
+      flex-shrink: 0;
+      height: 48px;
+      padding: 0 28px;
+      border-radius: 9999px;
+      border: none;
+      background: var(--primary);
+      color: var(--primary-fg);
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      box-shadow: var(--shadow-moss);
+      transition: all 0.3s ease;
+    }
+    .btn-fetch:hover { transform: scale(1.05); box-shadow: 0 6px 24px -4px rgba(93,112,82,0.25); }
+    .btn-fetch:active { transform: scale(0.95); }
+    .btn-fetch:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* Format hint */
+    .format-hint {
+      margin-top: 16px;
+      padding: 16px 20px;
+      background: rgba(93, 112, 82, 0.06);
+      border-radius: var(--radius-std);
+      font-size: 0.82rem;
+      color: var(--accent-fg);
+      line-height: 1.7;
+    }
+    .format-hint code {
+      background: rgba(93, 112, 82, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* ========== WORD DETAIL CARD ========== */
+    .word-detail {
+      display: none;
+      margin-bottom: 32px;
+      animation: slideUp 0.4s ease;
+    }
+    .word-detail.visible { display: block; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .word-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(222, 216, 207, 0.5);
+      border-radius: 2.5rem 1.5rem 2rem 1.8rem;
+      padding: 36px 32px;
+      box-shadow: var(--shadow-float);
+      position: relative;
+      overflow: hidden;
+    }
+    .word-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.02;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+    }
+    .word-card .word-title {
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 2.2rem;
+      color: var(--fg);
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+    .word-card .word-pos {
+      display: inline-block;
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--secondary);
+      background: rgba(193, 140, 93, 0.12);
+      padding: 4px 14px;
+      border-radius: 9999px;
+      margin-bottom: 20px;
+    }
+    .word-card .word-meaning-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted-fg);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .word-card .word-meaning {
+      font-size: 1.15rem;
+      color: var(--fg);
+      line-height: 1.7;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+    .word-card .word-example-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted-fg);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .word-card .word-example {
+      font-size: 1rem;
+      color: var(--accent-fg);
+      font-style: italic;
+      line-height: 1.7;
+      padding-left: 16px;
+      border-left: 3px solid var(--secondary);
+      background: rgba(193, 140, 93, 0.04);
+      padding: 12px 16px;
+      border-radius: 0 var(--radius-std) var(--radius-std) 0;
+    }
+    .word-card .word-divider {
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      border-radius: 2px;
+      margin: 16px 0;
+    }
+
+    @media (max-width: 639px) {
+      .word-card {
+        padding: 24px 20px;
+        border-radius: 1.5rem 1rem 1.5rem 1.2rem;
+      }
+      .word-card .word-title { font-size: 1.7rem; }
+    }
+
+    /* ========== WORD LIST (browse mode) ========== */
+    .word-list { margin-bottom: 32px; }
+    .word-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .word-list-header h2 {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: var(--fg);
+    }
+    .word-list-count {
+      font-size: 0.82rem;
+      color: var(--muted-fg);
+      font-weight: 500;
+    }
+    .word-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    @media (min-width: 640px) {
+      .word-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .word-list-item {
+      background: var(--card-bg);
+      border: 1px solid rgba(222, 216, 207, 0.4);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .word-list-item:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-deep);
+      border-color: rgba(93, 112, 82, 0.2);
+    }
+    .word-list-item:active { transform: scale(0.98); }
+    .word-list-item .wli-word {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: var(--fg);
+    }
+    .word-list-item .wli-pos {
+      font-size: 0.72rem;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--secondary);
+    }
+    .word-list-item .wli-meaning {
+      font-size: 0.85rem;
+      color: var(--muted-fg);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+    .page-btn {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: transparent;
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .page-btn:hover { border-color: var(--primary); color: var(--primary); transform: scale(1.08); }
+    .page-btn:active { transform: scale(0.95); }
+    .page-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--primary-fg);
+    }
+    .page-btn.nav-btn {
+      width: auto;
+      padding: 0 16px;
+      border-radius: 9999px;
+    }
+
+    /* ========== EMPTY STATE ========== */
+    .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+    }
+    .empty-state .empty-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .empty-state h3 {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      font-size: 1.4rem;
+      color: var(--fg);
+      margin-bottom: 8px;
+    }
+    .empty-state p {
+      color: var(--muted-fg);
+      font-size: 0.95rem;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* ========== TOAST ========== */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      padding: 14px 24px;
+      border-radius: 9999px;
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: white;
+      box-shadow: var(--shadow-float);
+      animation: toastIn 0.4s ease, toastOut 0.4s ease 3s forwards;
+      max-width: 360px;
+    }
+    .toast.success { background: var(--primary); }
+    .toast.error { background: var(--destructive); }
+    .toast.info { background: var(--secondary); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(20px) scale(0.9); }
+    }
+
+    /* ========== LOADING ========== */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: rgba(253, 252, 248, 0.8);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+    }
+    .loading-overlay.visible { display: flex; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--muted);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ========== ACTIONS BAR ========== */
+    .actions-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 40px;
+      padding: 0 20px;
+      border-radius: 9999px;
+      border: 2px solid var(--border);
+      background: transparent;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 0.82rem;
+      color: var(--muted-fg);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-action:hover {
+      border-color: var(--destructive);
+      color: var(--destructive);
+      transform: scale(1.05);
+    }
+    .btn-action:active { transform: scale(0.95); }
+    .btn-action.primary-action {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .btn-action.primary-action:hover {
+      background: var(--primary);
+      color: var(--primary-fg);
+    }
+
+    /* ========== FOOTER ========== */
+    .app-footer {
+      text-align: center;
+      padding: 32px 0 16px;
+      font-size: 0.78rem;
+      color: var(--muted-fg);
+      opacity: 0.6;
+    }
+
+    /* ========== LETTER INDEX ========== */
+    .letter-index {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .letter-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: none;
+      background: var(--muted);
+      color: var(--accent-fg);
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .letter-btn:hover { background: var(--primary); color: var(--primary-fg); transform: scale(1.12); }
+    .letter-btn:active { transform: scale(0.95); }
+    .letter-btn.active { background: var(--primary); color: var(--primary-fg); }
+    .letter-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <!-- Background blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toasts"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-icon">📖</div>
+      <h1>Từ Điển</h1>
+      <p class="subtitle">Tra cứu nhanh · Import từ file hoặc link</p>
+    </header>
+
+    <!-- Search -->
+    <div class="search-section" id="searchSection">
+      <div class="search-wrapper">
+        <div class="search-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </div>
+        <input type="text" class="search-input" id="searchInput" placeholder="Gõ từ cần tra..." autocomplete="off" spellcheck="false">
+        <button class="search-clear" id="searchClear" title="Xoá">&times;</button>
+      </div>
+      <div class="autocomplete-dropdown" id="autocomplete"></div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar" id="statsBar" style="display:none;">
+      <div class="stat-item">
+        <span class="stat-num" id="statTotal">0</span>
+        <span>từ vựng</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" id="statSource">—</span>
+        <span>nguồn</span>
+      </div>
+    </div>
+
+    <!-- Actions bar -->
+    <div class="actions-bar" id="actionsBar" style="display:none;">
+      <button class="btn-action primary-action" onclick="toggleImport()" title="Import thêm dữ liệu">
+        <span>📥</span> Import thêm
+      </button>
+      <button class="btn-action" onclick="clearAllData()" title="Xoá toàn bộ dữ liệu">
+        <span>🗑️</span> Xoá dữ liệu
+      </button>
+    </div>
+
+    <!-- Word detail card -->
+    <div class="word-detail" id="wordDetail">
+      <div class="word-card">
+        <div class="word-title" id="detailWord"></div>
+        <div class="word-pos" id="detailPos"></div>
+        <div class="word-divider"></div>
+        <div class="word-meaning-label">Nghĩa</div>
+        <div class="word-meaning" id="detailMeaning"></div>
+        <div id="detailExampleWrap" style="display:none;">
+          <div class="word-example-label">Ví dụ</div>
+          <div class="word-example" id="detailExample"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import section -->
+    <div class="import-section" id="importSection">
+      <div class="import-header" onclick="toggleImportBody()">
+        <h2>
+          <span>🌿</span> Import từ điển
+        </h2>
+        <div class="toggle-chevron" id="importChevron">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <div class="import-body" id="importBody">
+        <div class="import-tabs">
+          <button class="import-tab active" data-tab="file" onclick="switchTab('file')">📄 File</button>
+          <button class="import-tab" data-tab="url" onclick="switchTab('url')">🔗 Link</button>
+        </div>
+
+        <!-- File import -->
+        <div class="drop-zone" id="dropZone">
+          <span class="drop-icon">📂</span>
+          <div class="drop-text">Kéo thả file vào đây hoặc <strong>nhấn để chọn file</strong></div>
+          <div class="drop-hint">Hỗ trợ .txt, .csv, .docx — dùng dấu | hoặc Tab phân cách các cột</div>
+          <input type="file" id="fileInput" accept=".txt,.csv,.tsv,.docx">
+        </div>
+
+        <!-- URL import -->
+        <div class="url-import" id="urlImport">
+          <div class="url-input-wrap">
+            <input type="url" class="url-input" id="urlInput" placeholder="https://example.com/dictionary.txt">
+          </div>
+          <button class="btn-fetch" id="btnFetch" onclick="fetchFromUrl()">Tải về</button>
+        </div>
+
+        <div class="format-hint">
+          <strong>📐 Định dạng file:</strong> mỗi dòng là 1 từ, các cột phân cách bằng dấu <code>|</code> hoặc <code>Tab</code><br>
+          <code>word | part_of_speech | meaning | example</code><br>
+          Ví dụ: <code>serendipity | noun | sự tình cờ may mắn | It was pure serendipity.</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Letter index -->
+    <div class="letter-index" id="letterIndex" style="display:none;"></div>
+
+    <!-- Word list -->
+    <div class="word-list" id="wordList" style="display:none;">
+      <div class="word-list-header">
+        <h2 id="listTitle">Tất cả từ vựng</h2>
+        <span class="word-list-count" id="listCount"></span>
+      </div>
+      <div class="word-grid" id="wordGrid"></div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <span class="empty-icon">🍃</span>
+      <h3>Chưa có dữ liệu</h3>
+      <p>Hãy import file từ điển hoặc nhập link để bắt đầu tra cứu</p>
+    </div>
+
+    <footer class="app-footer">
+      Organic Dictionary — Dữ liệu lưu trên trình duyệt · Không cần kết nối internet
+    </footer>
+  </div>
+
+  <script>
+    // ============ STATE ============
+    let dictionary = [];
+    let currentPage = 1;
+    let activeLetter = null;
+    let acIndex = -1;
+    const PAGE_SIZE = 20;
+    const STORAGE_KEY = 'organic_dict_data';
+    const SOURCE_KEY = 'organic_dict_source';
+
+    // ============ INIT ============
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFromStorage();
+      setupDragDrop();
+      setupSearch();
+    });
+
+    // ============ STORAGE ============
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dictionary));
+      } catch (e) {
+        showToast('Dữ liệu quá lớn để lưu trên trình duyệt', 'error');
+      }
+    }
+    function saveSource(name) {
+      localStorage.setItem(SOURCE_KEY, name);
+    }
+    function loadFromStorage() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (data) {
+          let parsed = JSON.parse(data);
+          // Validate entries — reject corrupted/binary data
+          dictionary = parsed.filter(e =>
+            e && typeof e.word === 'string' && typeof e.meaning === 'string'
+            && e.word.length > 0 && e.meaning.length > 0
+            && isCleanText(e.word) && isCleanText(e.meaning)
+          );
+          if (dictionary.length > 0) {
+            onDataLoaded();
+          } else {
+            // Data was corrupted, clear it
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(SOURCE_KEY);
+          }
+        }
+      } catch (e) {
+        // Corrupted JSON, clear it
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(SOURCE_KEY);
+      }
+    }
+
+    // Check if text is clean (no binary garbage)
+    function isCleanText(str) {
+      if (!str || str.length === 0) return false;
+      // Reject strings with too many non-printable/control characters
+      let badChars = 0;
+      for (let i = 0; i < Math.min(str.length, 200); i++) {
+        const code = str.charCodeAt(i);
+        // Allow common printable chars, Unicode letters, and common punctuation
+        if (code < 32 && code !== 9 && code !== 10 && code !== 13) badChars++;
+        // Replacement char or other junk
+        if (code === 0xFFFD || code === 0) badChars++;
+      }
+      return badChars / Math.min(str.length, 200) < 0.1;
+    }
+
+    // ============ PARSING ============
+    function isBinaryContent(text) {
+      // Detect binary files: ZIP/DOCX start with 'PK', PDF with '%PDF', etc.
+      if (text.startsWith('PK')) return true;
+      if (text.startsWith('%PDF')) return true;
+      if (text.startsWith('\x89PNG')) return true;
+      if (text.startsWith('\xFF\xD8')) return true; // JPEG
+      // Check for too many non-printable characters in first 500 chars
+      let badChars = 0;
+      const sample = text.substring(0, 500);
+      for (let i = 0; i < sample.length; i++) {
+        const code = sample.charCodeAt(i);
+        if (code < 32 && code !== 9 && code !== 10 && code !== 13) badChars++;
+        if (code === 0xFFFD || code === 0) badChars++;
+      }
+      return badChars / sample.length > 0.1;
+    }
+
+    function parseCSV(text) {
+      // Reject binary content
+      if (isBinaryContent(text)) {
+        return [];
+      }
+
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const entries = [];
+      for (const line of lines) {
+        // Skip lines that look like binary garbage
+        if (!isCleanText(line)) continue;
+
+        // Try pipe separator first, then tab
+        let parts;
+        if (line.includes('|')) {
+          parts = line.split('|').map(s => s.trim());
+        } else if (line.includes('\t')) {
+          parts = line.split('\t').map(s => s.trim());
+        } else if (line.includes(',')) {
+          // Simple CSV - no handling for quoted commas
+          parts = line.split(',').map(s => s.trim());
+        } else {
+          continue;
+        }
+
+        if (parts.length < 2) continue;
+
+        // Skip header-like lines
+        const first = parts[0].toLowerCase();
+        if (first === 'word' || first === 'từ' || first === 'tu') continue;
+
+        const entry = {
+          word: parts[0] || '',
+          pos: parts.length >= 3 ? parts[1] : '',
+          meaning: parts.length >= 3 ? parts[2] : parts[1],
+          example: parts.length >= 4 ? parts[3] : ''
+        };
+
+        if (entry.word && entry.meaning && isCleanText(entry.word) && isCleanText(entry.meaning)) {
+          entries.push(entry);
+        }
+      }
+      return entries;
+    }
+
+    // ============ FILE IMPORT ============
+    function setupDragDrop() {
+      const zone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) processFile(file);
+      });
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) processFile(file);
+        fileInput.value = '';
+      });
+    }
+
+    function processFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      // Handle .docx files
+      if (ext === 'docx' || ext === 'doc') {
+        processDocx(file);
+        return;
+      }
+
+      // Check file extension for text files
+      if (!['txt', 'csv', 'tsv'].includes(ext)) {
+        showToast(`Không hỗ trợ file .${ext} — chỉ chấp nhận .txt, .csv, .tsv, .docx`, 'error');
+        return;
+      }
+
+      showLoading(true);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+
+        if (isBinaryContent(text)) {
+          showToast('File này không phải text hợp lệ', 'error');
+          showLoading(false);
+          return;
+        }
+
+        const entries = parseCSV(text);
+        if (entries.length === 0) {
+          showToast('Không tìm thấy dữ liệu hợp lệ. Định dạng: word | pos | meaning | example', 'error');
+          showLoading(false);
+          return;
+        }
+        dictionary = entries;
+        saveToStorage();
+        saveSource(file.name);
+        showToast(`Đã import ${entries.length} từ từ ${file.name}`, 'success');
+        onDataLoaded();
+        showLoading(false);
+      };
+      reader.onerror = () => {
+        showToast('Lỗi đọc file', 'error');
+        showLoading(false);
+      };
+      reader.readAsText(file);
+    }
+
+    // ============ DOCX IMPORT ============
+    async function processDocx(file) {
+      showLoading(true);
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+
+        // Extract text from word/document.xml
+        const docXml = zip.file('word/document.xml');
+        if (!docXml) {
+          showToast('File docx không hợp lệ — không tìm thấy nội dung', 'error');
+          showLoading(false);
+          return;
+        }
+
+        const xmlText = await docXml.async('string');
+
+        // Parse XML to extract text from paragraphs
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+
+        // Get all paragraphs — handle namespace
+        const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+        const paragraphs = xmlDoc.getElementsByTagNameNS(ns, 'p');
+        const lines = [];
+
+        for (const p of paragraphs) {
+          // Collect all text runs in this paragraph
+          const textNodes = p.getElementsByTagNameNS(ns, 't');
+          let lineText = '';
+          for (const t of textNodes) {
+            lineText += t.textContent || '';
+          }
+          lineText = lineText.trim();
+          if (lineText) lines.push(lineText);
+        }
+
+        if (lines.length === 0) {
+          showToast('File docx không có nội dung text', 'error');
+          showLoading(false);
+          return;
+        }
+
+        // Join lines and parse as CSV
+        const fullText = lines.join('\n');
+        const entries = parseCSV(fullText);
+
+        if (entries.length === 0) {
+          showToast('Không tìm thấy dữ liệu hợp lệ trong docx. Định dạng: word | pos | meaning | example', 'error');
+          showLoading(false);
+          return;
+        }
+
+        dictionary = entries;
+        saveToStorage();
+        saveSource(file.name);
+        showToast(`Đã import ${entries.length} từ từ ${file.name}`, 'success');
+        onDataLoaded();
+      } catch (err) {
+        showToast('Lỗi đọc file docx: ' + err.message, 'error');
+      }
+      showLoading(false);
+    }
+
+    // ============ URL IMPORT ============
+    async function fetchFromUrl() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) {
+        showToast('Vui lòng nhập URL', 'error');
+        return;
+      }
+      const btn = document.getElementById('btnFetch');
+      btn.disabled = true;
+      btn.textContent = 'Đang tải...';
+      showLoading(true);
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        const entries = parseCSV(text);
+        if (entries.length === 0) {
+          showToast('Không tìm thấy dữ liệu hợp lệ từ URL', 'error');
+          showLoading(false);
+          btn.disabled = false;
+          btn.textContent = 'Tải về';
+          return;
+        }
+        dictionary = entries;
+        saveToStorage();
+        saveSource(new URL(url).hostname);
+        showToast(`Đã import ${entries.length} từ từ URL`, 'success');
+        onDataLoaded();
+      } catch (err) {
+        showToast('Lỗi tải dữ liệu: ' + err.message, 'error');
+      }
+
+      showLoading(false);
+      btn.disabled = false;
+      btn.textContent = 'Tải về';
+    }
+
+    // ============ DATA LOADED ============
+    function onDataLoaded() {
+      // Show stats
+      document.getElementById('statsBar').style.display = 'flex';
+      document.getElementById('statTotal').textContent = dictionary.length.toLocaleString();
+      const source = localStorage.getItem(SOURCE_KEY);
+      document.getElementById('statSource').textContent = source || '—';
+
+      // Show actions
+      document.getElementById('actionsBar').style.display = 'flex';
+
+      // Collapse import section
+      document.getElementById('importBody').classList.add('collapsed');
+      document.getElementById('importChevron').classList.add('collapsed');
+
+      // Hide empty state
+      document.getElementById('emptyState').style.display = 'none';
+
+      // Build letter index
+      buildLetterIndex();
+
+      // Show word list
+      activeLetter = null;
+      currentPage = 1;
+      renderWordList();
+    }
+
+    // ============ LETTER INDEX ============
+    function buildLetterIndex() {
+      const container = document.getElementById('letterIndex');
+      container.style.display = 'flex';
+      container.innerHTML = '';
+
+      const letters = new Set();
+      dictionary.forEach(e => {
+        const first = e.word.charAt(0).toUpperCase();
+        if (/[A-ZÀ-Ỹ]/.test(first)) letters.add(first);
+      });
+
+      // All button
+      const allBtn = document.createElement('button');
+      allBtn.className = 'letter-btn active';
+      allBtn.textContent = '⁂';
+      allBtn.title = 'Tất cả';
+      allBtn.onclick = () => {
+        activeLetter = null;
+        currentPage = 1;
+        renderWordList();
+        updateLetterButtons();
+      };
+      container.appendChild(allBtn);
+
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(l => {
+        const btn = document.createElement('button');
+        btn.className = 'letter-btn' + (letters.has(l) ? '' : ' disabled');
+        btn.textContent = l;
+        btn.disabled = !letters.has(l);
+        btn.onclick = () => {
+          if (!letters.has(l)) return;
+          activeLetter = l;
+          currentPage = 1;
+          renderWordList();
+          updateLetterButtons();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function updateLetterButtons() {
+      document.querySelectorAll('.letter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (activeLetter === null && btn.textContent === '⁂') btn.classList.add('active');
+        if (btn.textContent === activeLetter) btn.classList.add('active');
+      });
+    }
+
+    // ============ WORD LIST ============
+    function getFilteredList() {
+      if (!activeLetter) return dictionary;
+      return dictionary.filter(e => e.word.charAt(0).toUpperCase() === activeLetter);
+    }
+
+    function renderWordList() {
+      const container = document.getElementById('wordList');
+      const grid = document.getElementById('wordGrid');
+      const filtered = getFilteredList();
+
+      container.style.display = 'block';
+      document.getElementById('listTitle').textContent = activeLetter ? `Chữ ${activeLetter}` : 'Tất cả từ vựng';
+      document.getElementById('listCount').textContent = `${filtered.length} từ`;
+
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+      grid.innerHTML = '';
+      pageItems.forEach((entry, i) => {
+        const item = document.createElement('div');
+        item.className = 'word-list-item';
+        item.style.animationDelay = `${i * 30}ms`;
+        item.innerHTML = `
+          <div style="display:flex;align-items:baseline;gap:8px;">
+            <span class="wli-word">${escapeHtml(entry.word)}</span>
+            ${entry.pos ? `<span class="wli-pos">${escapeHtml(entry.pos)}</span>` : ''}
+          </div>
+          <div class="wli-meaning">${escapeHtml(entry.meaning)}</div>
+        `;
+        item.onclick = () => showDetail(entry);
+        grid.appendChild(item);
+      });
+
+      renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+      const container = document.getElementById('pagination');
+      container.innerHTML = '';
+      if (totalPages <= 1) return;
+
+      // Previous
+      if (currentPage > 1) {
+        const prev = document.createElement('button');
+        prev.className = 'page-btn nav-btn';
+        prev.textContent = '← Trước';
+        prev.onclick = () => { currentPage--; renderWordList(); scrollToList(); };
+        container.appendChild(prev);
+      }
+
+      // Page numbers
+      const range = getPageRange(currentPage, totalPages);
+      range.forEach(p => {
+        if (p === '...') {
+          const dots = document.createElement('span');
+          dots.textContent = '…';
+          dots.style.cssText = 'color:var(--muted-fg);padding:0 4px;';
+          container.appendChild(dots);
+        } else {
+          const btn = document.createElement('button');
+          btn.className = 'page-btn' + (p === currentPage ? ' active' : '');
+          btn.textContent = p;
+          btn.onclick = () => { currentPage = p; renderWordList(); scrollToList(); };
+          container.appendChild(btn);
+        }
+      });
+
+      // Next
+      if (currentPage < totalPages) {
+        const next = document.createElement('button');
+        next.className = 'page-btn nav-btn';
+        next.textContent = 'Sau →';
+        next.onclick = () => { currentPage++; renderWordList(); scrollToList(); };
+        container.appendChild(next);
+      }
+    }
+
+    function getPageRange(current, total) {
+      if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+      const pages = [];
+      pages.push(1);
+      if (current > 3) pages.push('...');
+      for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+        pages.push(i);
+      }
+      if (current < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    }
+
+    function scrollToList() {
+      document.getElementById('wordList').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ============ WORD DETAIL ============
+    function showDetail(entry) {
+      const detail = document.getElementById('wordDetail');
+      document.getElementById('detailWord').textContent = entry.word;
+      document.getElementById('detailPos').textContent = entry.pos || '—';
+      document.getElementById('detailPos').style.display = entry.pos ? 'inline-block' : 'none';
+      document.getElementById('detailMeaning').textContent = entry.meaning;
+
+      const exWrap = document.getElementById('detailExampleWrap');
+      if (entry.example) {
+        exWrap.style.display = 'block';
+        document.getElementById('detailExample').textContent = entry.example;
+      } else {
+        exWrap.style.display = 'none';
+      }
+
+      detail.classList.add('visible');
+      detail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // ============ SEARCH ============
+    function setupSearch() {
+      const input = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('searchClear');
+      const ac = document.getElementById('autocomplete');
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim();
+        clearBtn.classList.toggle('visible', q.length > 0);
+        if (q.length === 0) {
+          closeAutocomplete();
+          return;
+        }
+        showAutocomplete(q);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        const items = ac.querySelectorAll('.autocomplete-item');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          acIndex = Math.min(acIndex + 1, items.length - 1);
+          updateAcHighlight(items);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          acIndex = Math.max(acIndex - 1, -1);
+          updateAcHighlight(items);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (acIndex >= 0 && items[acIndex]) {
+            items[acIndex].click();
+          } else if (items.length > 0) {
+            items[0].click();
+          }
+        } else if (e.key === 'Escape') {
+          closeAutocomplete();
+          input.blur();
+        }
+      });
+
+      clearBtn.addEventListener('click', () => {
+        input.value = '';
+        clearBtn.classList.remove('visible');
+        closeAutocomplete();
+        input.focus();
+      });
+
+      // Close autocomplete on outside click
+      document.addEventListener('click', (e) => {
+        if (!document.getElementById('searchSection').contains(e.target)) {
+          closeAutocomplete();
+        }
+      });
+    }
+
+    function showAutocomplete(query) {
+      const ac = document.getElementById('autocomplete');
+      const q = query.toLowerCase();
+      const matches = dictionary
+        .filter(e => e.word.toLowerCase().includes(q) || e.meaning.toLowerCase().includes(q))
+        .slice(0, 12);
+
+      if (matches.length === 0) {
+        ac.innerHTML = `<div class="autocomplete-item" style="cursor:default;color:var(--muted-fg);justify-content:center;">Không tìm thấy kết quả</div>`;
+        ac.classList.add('open');
+        acIndex = -1;
+        return;
+      }
+
+      ac.innerHTML = matches.map((entry, i) => `
+        <div class="autocomplete-item" data-index="${i}">
+          <span class="ac-word">${highlightMatch(escapeHtml(entry.word), query)}</span>
+          ${entry.pos ? `<span class="ac-pos">${escapeHtml(entry.pos)}</span>` : ''}
+          <span class="ac-meaning">${highlightMatch(escapeHtml(entry.meaning), query)}</span>
+        </div>
+      `).join('');
+
+      ac.querySelectorAll('.autocomplete-item').forEach((item, i) => {
+        item.addEventListener('click', () => {
+          showDetail(matches[i]);
+          closeAutocomplete();
+          document.getElementById('searchInput').value = matches[i].word;
+          document.getElementById('searchClear').classList.add('visible');
+        });
+      });
+
+      ac.classList.add('open');
+      acIndex = -1;
+    }
+
+    function closeAutocomplete() {
+      document.getElementById('autocomplete').classList.remove('open');
+      acIndex = -1;
+    }
+
+    function updateAcHighlight(items) {
+      items.forEach((item, i) => {
+        item.classList.toggle('active', i === acIndex);
+      });
+      if (acIndex >= 0 && items[acIndex]) {
+        items[acIndex].scrollIntoView({ block: 'nearest' });
+      }
+    }
+
+    function highlightMatch(text, query) {
+      if (!query) return text;
+      const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+      return text.replace(regex, '<mark>$1</mark>');
+    }
+
+    // ============ UI HELPERS ============
+    function toggleImport() {
+      const body = document.getElementById('importBody');
+      const chevron = document.getElementById('importChevron');
+      body.classList.remove('collapsed');
+      chevron.classList.remove('collapsed');
+      document.getElementById('importSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function toggleImportBody() {
+      const body = document.getElementById('importBody');
+      const chevron = document.getElementById('importChevron');
+      body.classList.toggle('collapsed');
+      chevron.classList.toggle('collapsed');
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.import-tab[data-tab="${tab}"]`).classList.add('active');
+
+      document.getElementById('dropZone').style.display = tab === 'file' ? 'block' : 'none';
+      document.getElementById('urlImport').classList.toggle('active', tab === 'url');
+    }
+
+    function clearAllData() {
+      if (!confirm('Bạn có chắc muốn xoá toàn bộ dữ liệu từ điển?')) return;
+      dictionary = [];
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(SOURCE_KEY);
+      document.getElementById('statsBar').style.display = 'none';
+      document.getElementById('actionsBar').style.display = 'none';
+      document.getElementById('wordDetail').classList.remove('visible');
+      document.getElementById('wordList').style.display = 'none';
+      document.getElementById('letterIndex').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('importBody').classList.remove('collapsed');
+      document.getElementById('importChevron').classList.remove('collapsed');
+      showToast('Đã xoá toàn bộ dữ liệu', 'info');
+    }
+
+    function showLoading(show) {
+      document.getElementById('loading').classList.toggle('visible', show);
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toasts');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  </script>
+</body>
+</html>
